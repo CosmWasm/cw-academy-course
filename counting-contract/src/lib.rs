@@ -27,5 +27,6 @@ pub fn query(_deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
 
     match msg {
         Value {} => to_binary(&query::value()),
+        Incremented { value } => to_binary(&query::incremented(value)),
     }
 }
