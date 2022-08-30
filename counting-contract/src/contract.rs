@@ -1,11 +1,11 @@
 pub mod query {
+    use cosmwasm_std::{Deps, StdResult};
+
     use crate::msg::ValueResp;
+    use crate::state::COUNTER;
 
-    pub fn value() -> ValueResp {
-        ValueResp { value: 0 }
-    }
-
-    pub fn incremented(value: u64) -> ValueResp {
-        ValueResp { value: value + 1 }
+    pub fn value(deps: Deps) -> StdResult<ValueResp> {
+        let value = COUNTER.load(deps.storage)?;
+        Ok(ValueResp { value })
     }
 }

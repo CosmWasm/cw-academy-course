@@ -1,17 +1,21 @@
 use cosmwasm_std::{
     entry_point, to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
 };
+use state::COUNTER;
 
 mod contract;
 pub mod msg;
+mod state;
 
 #[entry_point]
 pub fn instantiate(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     _msg: Empty,
 ) -> StdResult<Response> {
+    COUNTER.save(deps.storage, &0)?;
+
     Ok(Response::new())
 }
 
@@ -21,13 +25,12 @@ pub fn execute(_deps: DepsMut, _env: Env, _info: MessageInfo, _msg: Empty) -> St
 }
 
 #[entry_point]
-pub fn query(_deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
     use contract::query;
     use msg::QueryMsg::*;
 
     match msg {
-        Value {} => to_binary(&query::value()),
-        Incremented { value } => to_binary(&query::incremented(value)),
+        Value {} => to_binary(&query::value(deps)?),
     }
 }
 
@@ -67,30 +70,5 @@ mod test {
             .unwrap();
 
         assert_eq!(resp, ValueResp { value: 0 });
-    }
-
-    #[test]
-    fn query_incremented() {
-        let mut app = App::default();
-
-        let contract_id = app.store_code(counting_contract());
-
-        let contract_addr = app
-            .instantiate_contract(
-                contract_id,
-                Addr::unchecked("sender"),
-                &Empty {},
-                &[],
-                "Counting contract",
-                None,
-            )
-            .unwrap();
-
-        let resp: ValueResp = app
-            .wrap()
-            .query_wasm_smart(contract_addr, &QueryMsg::Incremented { value: 1 })
-            .unwrap();
-
-        assert_eq!(resp, ValueResp { value: 2 });
     }
 }
