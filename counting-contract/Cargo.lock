@@ -91,6 +91,7 @@ name = "counting-contract"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-std",
+ "serde",
 ]
 
 [[package]]
