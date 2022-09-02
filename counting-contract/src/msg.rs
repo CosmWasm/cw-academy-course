@@ -23,6 +23,7 @@ pub enum ExecMsg {
         #[serde(default)]
         counter: u64,
     },
+    Withdraw {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
