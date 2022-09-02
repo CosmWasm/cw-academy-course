@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
+    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 use msg::InstantiateMsg;
 
@@ -18,8 +18,18 @@ pub fn instantiate(
 }
 
 #[entry_point]
-pub fn execute(_deps: DepsMut, _env: Env, _info: MessageInfo, _msg: Empty) -> StdResult<Response> {
-    Ok(Response::new())
+pub fn execute(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    msg: msg::ExecMsg,
+) -> StdResult<Response> {
+    use contract::exec;
+    use msg::ExecMsg::*;
+
+    match msg {
+        Poke {} => exec::poke(deps, info),
+    }
 }
 
 #[entry_point]
@@ -37,7 +47,7 @@ mod test {
     use cosmwasm_std::{Addr, Empty};
     use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 
-    use crate::msg::{InstantiateMsg, QueryMsg, ValueResp};
+    use crate::msg::{ExecMsg, InstantiateMsg, QueryMsg, ValueResp};
     use crate::{execute, instantiate, query};
 
     fn counting_contract() -> Box<dyn Contract<Empty>> {
@@ -68,5 +78,38 @@ mod test {
             .unwrap();
 
         assert_eq!(resp, ValueResp { value: 10 });
+    }
+
+    #[test]
+    fn poke() {
+        let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                Addr::unchecked("sender"),
+                &InstantiateMsg { counter: 0 },
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+
+        app.execute_contract(
+            Addr::unchecked("sender"),
+            contract_addr.clone(),
+            &ExecMsg::Poke {},
+            &[],
+        )
+        .unwrap();
+
+        let resp: ValueResp = app
+            .wrap()
+            .query_wasm_smart(contract_addr, &QueryMsg::Value {})
+            .unwrap();
+
+        assert_eq!(resp, ValueResp { value: 1 });
     }
 }
