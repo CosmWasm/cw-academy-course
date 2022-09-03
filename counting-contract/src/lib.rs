@@ -31,11 +31,9 @@ pub fn execute(
 
     match msg {
         Donate {} => exec::donate(deps, info).map_err(ContractError::Std),
-        Reset { counter } => exec::reset(deps, info, counter).map_err(ContractError::Std),
+        Reset { counter } => exec::reset(deps, info, counter),
         Withdraw {} => exec::withdraw(deps, env, info),
-        WithdrawTo { receiver, funds } => {
-            exec::withdraw_to(deps, env, info, receiver, funds).map_err(ContractError::Std)
-        }
+        WithdrawTo { receiver, funds } => exec::withdraw_to(deps, env, info, receiver, funds),
     }
 }
 
@@ -382,6 +380,84 @@ mod test {
 
         let err = app
             .execute_contract(member, contract_addr, &ExecMsg::Withdraw {}, &[])
+            .unwrap_err();
+
+        assert_eq!(
+            ContractError::Unauthorized {
+                owner: owner.into()
+            },
+            err.downcast().unwrap()
+        );
+    }
+
+    #[test]
+    fn unauthorized_withdraw_to() {
+        let owner = Addr::unchecked("owner");
+        let member = Addr::unchecked("member");
+
+        let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                owner.clone(),
+                &InstantiateMsg {
+                    counter: 0,
+                    minimal_donation: coin(10, "atom"),
+                },
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+
+        let err = app
+            .execute_contract(
+                member,
+                contract_addr,
+                &ExecMsg::WithdrawTo {
+                    receiver: owner.to_string(),
+                    funds: vec![],
+                },
+                &[],
+            )
+            .unwrap_err();
+
+        assert_eq!(
+            ContractError::Unauthorized {
+                owner: owner.into()
+            },
+            err.downcast().unwrap()
+        );
+    }
+
+    #[test]
+    fn unauthorized_reset() {
+        let owner = Addr::unchecked("owner");
+        let member = Addr::unchecked("member");
+
+        let mut app = App::default();
+
+        let contract_id = app.store_code(counting_contract());
+
+        let contract_addr = app
+            .instantiate_contract(
+                contract_id,
+                owner.clone(),
+                &InstantiateMsg {
+                    counter: 0,
+                    minimal_donation: coin(10, "atom"),
+                },
+                &[],
+                "Counting contract",
+                None,
+            )
+            .unwrap();
+
+        let err = app
+            .execute_contract(member, contract_addr, &ExecMsg::Reset { counter: 10 }, &[])
             .unwrap_err();
 
         assert_eq!(
