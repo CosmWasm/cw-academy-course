@@ -7,6 +7,8 @@ use msg::InstantiateMsg;
 mod contract;
 pub mod error;
 pub mod msg;
+#[cfg(test)]
+pub mod multitest;
 mod state;
 
 #[entry_point]
