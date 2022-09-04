@@ -15,6 +15,7 @@ cosmwasm-schema = "1.1.1"
 cosmwasm-std = "1.1.2"
 cw-multi-test = { version = "0.15.0", optional = true }
 cw-storage-plus = "0.15.0"
+cw2 = "0.15.0"
 schemars = "0.8.10"
 serde = { version = "1.0.144", features = ["derive"] }
 thiserror = "1.0.35"

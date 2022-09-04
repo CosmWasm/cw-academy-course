@@ -151,6 +151,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-multi-test",
  "cw-storage-plus",
+ "cw2",
  "schemars",
  "serde",
  "thiserror",
