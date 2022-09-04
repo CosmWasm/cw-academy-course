@@ -1,7 +1,7 @@
-use cosmwasm_std::{Coin, DepsMut, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Addr, Coin, DepsMut, MessageInfo, Response, StdResult};
 use cw_storage_plus::Item;
 
-use crate::state::{State, OWNER, STATE};
+use crate::state::{State, STATE};
 
 pub fn instantiate(
     deps: DepsMut,
@@ -14,24 +14,27 @@ pub fn instantiate(
         &State {
             counter,
             minimal_donation,
+            owner: info.sender,
         },
     )?;
-    OWNER.save(deps.storage, &info.sender)?;
     Ok(Response::new())
 }
 
 pub fn migrate(deps: DepsMut) -> StdResult<Response> {
     const COUNTER: Item<u64> = Item::new("counter");
     const MINIMAL_DONATION: Item<Coin> = Item::new("minimal_donation");
+    const OWNER: Item<Addr> = Item::new("owner");
 
     let counter = COUNTER.load(deps.storage)?;
     let minimal_donation = MINIMAL_DONATION.load(deps.storage)?;
+    let owner = OWNER.load(deps.storage)?;
 
     STATE.save(
         deps.storage,
         &State {
             counter,
             minimal_donation,
+            owner,
         },
     )?;
 
@@ -54,7 +57,7 @@ pub mod exec {
     use cosmwasm_std::{BankMsg, Coin, DepsMut, Env, MessageInfo, Response, StdResult, Uint128};
 
     use crate::error::ContractError;
-    use crate::state::{OWNER, STATE};
+    use crate::state::STATE;
 
     pub fn donate(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
         let mut state = STATE.load(deps.storage)?;
@@ -82,17 +85,16 @@ pub mod exec {
         info: MessageInfo,
         counter: u64,
     ) -> Result<Response, ContractError> {
-        let owner = OWNER.load(deps.storage)?;
-        if info.sender != owner {
+        let mut state = STATE.load(deps.storage)?;
+
+        if info.sender != state.owner {
             return Err(ContractError::Unauthorized {
-                owner: owner.to_string(),
+                owner: state.owner.to_string(),
             });
         }
 
-        STATE.update(deps.storage, |mut state| -> StdResult<_> {
-            state.counter = counter;
-            Ok(state)
-        })?;
+        state.counter = counter;
+        STATE.save(deps.storage, &state)?;
 
         let resp = Response::new()
             .add_attribute("action", "reset")
@@ -103,7 +105,7 @@ pub mod exec {
     }
 
     pub fn withdraw(deps: DepsMut, env: Env, info: MessageInfo) -> Result<Response, ContractError> {
-        let owner = OWNER.load(deps.storage)?;
+        let owner = STATE.load(deps.storage)?.owner;
         if info.sender != owner {
             return Err(ContractError::Unauthorized {
                 owner: owner.to_string(),
@@ -131,7 +133,7 @@ pub mod exec {
         receiver: String,
         funds: Vec<Coin>,
     ) -> Result<Response, ContractError> {
-        let owner = OWNER.load(deps.storage)?;
+        let owner = STATE.load(deps.storage)?.owner;
         if info.sender != owner {
             return Err(ContractError::Unauthorized {
                 owner: owner.to_string(),

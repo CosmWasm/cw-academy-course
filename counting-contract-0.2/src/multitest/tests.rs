@@ -352,7 +352,8 @@ fn migration() {
         state,
         State {
             counter: 1,
-            minimal_donation: coin(10, ATOM)
+            minimal_donation: coin(10, ATOM),
+            owner,
         }
     );
 }
