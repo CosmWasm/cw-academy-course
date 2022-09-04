@@ -357,3 +357,49 @@ fn migration() {
         }
     );
 }
+
+#[test]
+fn migration_same_version() {
+    let admin = Addr::unchecked("admin");
+    let owner = Addr::unchecked("owner");
+    let sender = Addr::unchecked("sender");
+
+    let mut app = App::new(|router, _api, storage| {
+        router
+            .bank
+            .init_balance(storage, &sender, coins(10, "atom"))
+            .unwrap();
+    });
+
+    let code_id = CountingContract::store_code(&mut app);
+
+    let contract = CountingContract::instantiate(
+        &mut app,
+        code_id,
+        &owner,
+        "Counting contract",
+        &admin,
+        None,
+        coin(10, ATOM),
+    )
+    .unwrap();
+
+    contract
+        .donate(&mut app, &sender, &coins(10, ATOM))
+        .unwrap();
+
+    let contract = CountingContract::migrate(&mut app, contract.into(), code_id, &admin).unwrap();
+
+    let resp = contract.query_value(&app).unwrap();
+    assert_eq!(resp, ValueResp { value: 1 });
+
+    let state = STATE.query(&app.wrap(), contract.addr().clone()).unwrap();
+    assert_eq!(
+        state,
+        State {
+            counter: 1,
+            minimal_donation: coin(10, ATOM),
+            owner,
+        }
+    );
+}
