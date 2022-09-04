@@ -42,3 +42,8 @@ pub enum ExecMsg {
 pub struct ValueResp {
     pub value: u64,
 }
+
+#[cw_serde]
+pub struct MigrateMsg {
+    pub parent: Option<Parent>,
+}

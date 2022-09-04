@@ -3,7 +3,7 @@ use cw_multi_test::App;
 
 use crate::error::ContractError;
 use crate::msg::{Parent, ValueResp};
-use crate::state::{State, STATE};
+use crate::state::{ParentDonation, State, PARENT_DONATION, STATE};
 
 use super::contract::CountingContract;
 use counting_contract_0_1::multitest::contract::CountingContract as CountingContract_0_1;
@@ -352,7 +352,7 @@ fn migration() {
         .unwrap();
 
     let contract =
-        CountingContract::migrate(&mut app, contract.into(), new_code_id, &admin).unwrap();
+        CountingContract::migrate(&mut app, contract.into(), new_code_id, &admin, None).unwrap();
 
     let resp = contract.query_value(&app).unwrap();
     assert_eq!(resp, ValueResp { value: 1 });
@@ -367,6 +367,78 @@ fn migration() {
             donating_parent: None,
         }
     );
+}
+
+#[test]
+fn migration_with_parent() {
+    let admin = Addr::unchecked("admin");
+    let owner = Addr::unchecked("owner");
+    let sender = Addr::unchecked("sender");
+    let parent = Addr::unchecked("parent");
+
+    let mut app = App::new(|router, _api, storage| {
+        router
+            .bank
+            .init_balance(storage, &sender, coins(10, "atom"))
+            .unwrap();
+    });
+
+    let old_code_id = CountingContract_0_1::store_code(&mut app);
+    let new_code_id = CountingContract::store_code(&mut app);
+
+    let contract = CountingContract_0_1::instantiate(
+        &mut app,
+        old_code_id,
+        &owner,
+        "Counting contract",
+        &admin,
+        None,
+        coin(10, ATOM),
+    )
+    .unwrap();
+
+    contract
+        .donate(&mut app, &sender, &coins(10, ATOM))
+        .unwrap();
+
+    let contract = CountingContract::migrate(
+        &mut app,
+        contract.into(),
+        new_code_id,
+        &admin,
+        Parent {
+            addr: parent.to_string(),
+            donating_period: 2,
+            part: Decimal::percent(10),
+        },
+    )
+    .unwrap();
+
+    let resp = contract.query_value(&app).unwrap();
+    assert_eq!(resp, ValueResp { value: 1 });
+
+    let state = STATE.query(&app.wrap(), contract.addr().clone()).unwrap();
+    assert_eq!(
+        state,
+        State {
+            counter: 1,
+            minimal_donation: coin(10, ATOM),
+            owner,
+            donating_parent: Some(2),
+        }
+    );
+
+    let parent_donation = PARENT_DONATION
+        .query(&app.wrap(), contract.addr().clone())
+        .unwrap();
+    assert_eq!(
+        parent_donation,
+        ParentDonation {
+            address: parent,
+            donating_parent_period: 2,
+            part: Decimal::percent(10),
+        }
+    )
 }
 
 #[test]
@@ -400,7 +472,8 @@ fn migration_same_version() {
         .donate(&mut app, &sender, &coins(10, ATOM))
         .unwrap();
 
-    let contract = CountingContract::migrate(&mut app, contract.into(), code_id, &admin).unwrap();
+    let contract =
+        CountingContract::migrate(&mut app, contract.into(), code_id, &admin, None).unwrap();
 
     let resp = contract.query_value(&app).unwrap();
     assert_eq!(resp, ValueResp { value: 1 });

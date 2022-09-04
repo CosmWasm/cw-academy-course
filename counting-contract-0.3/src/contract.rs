@@ -43,7 +43,7 @@ pub fn instantiate(
     Ok(Response::new())
 }
 
-pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
+pub fn migrate(mut deps: DepsMut, parent: Option<Parent>) -> Result<Response, ContractError> {
     let contract_version = get_contract_version(deps.storage)?;
 
     if contract_version.contract != CONTRACT_NAME {
@@ -53,8 +53,8 @@ pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
     }
 
     let resp = match contract_version.version.as_str() {
-        "0.1.0" => migrate_0_1_0(deps.branch()).map_err(ContractError::from)?,
-        "0.2.0" => migrate_0_2_0(deps.branch()).map_err(ContractError::from)?,
+        "0.1.0" => migrate_0_1_0(deps.branch(), parent).map_err(ContractError::from)?,
+        "0.2.0" => migrate_0_2_0(deps.branch(), parent).map_err(ContractError::from)?,
         CONTRACT_VERSION => return Ok(Response::default()),
         version => {
             return Err(ContractError::InvalidContractVersion {
@@ -68,7 +68,7 @@ pub fn migrate(mut deps: DepsMut) -> Result<Response, ContractError> {
     Ok(resp)
 }
 
-pub fn migrate_0_1_0(deps: DepsMut) -> StdResult<Response> {
+pub fn migrate_0_1_0(deps: DepsMut, parent: Option<Parent>) -> StdResult<Response> {
     const COUNTER: Item<u64> = Item::new("counter");
     const MINIMAL_DONATION: Item<Coin> = Item::new("minimal_donation");
     const OWNER: Item<Addr> = Item::new("owner");
@@ -83,14 +83,25 @@ pub fn migrate_0_1_0(deps: DepsMut) -> StdResult<Response> {
             counter,
             minimal_donation,
             owner,
-            donating_parent: None,
+            donating_parent: parent.as_ref().map(|p| p.donating_period),
         },
     )?;
+
+    if let Some(parent) = parent {
+        PARENT_DONATION.save(
+            deps.storage,
+            &ParentDonation {
+                address: deps.api.addr_validate(&parent.addr)?,
+                donating_parent_period: parent.donating_period,
+                part: parent.part,
+            },
+        )?;
+    }
 
     Ok(Response::new())
 }
 
-pub fn migrate_0_2_0(deps: DepsMut) -> StdResult<Response> {
+pub fn migrate_0_2_0(deps: DepsMut, parent: Option<Parent>) -> StdResult<Response> {
     #[derive(Serialize, Deserialize)]
     struct OldState {
         counter: u64,
@@ -112,9 +123,20 @@ pub fn migrate_0_2_0(deps: DepsMut) -> StdResult<Response> {
             counter,
             minimal_donation,
             owner,
-            donating_parent: None,
+            donating_parent: parent.as_ref().map(|p| p.donating_period),
         },
     )?;
+
+    if let Some(parent) = parent {
+        PARENT_DONATION.save(
+            deps.storage,
+            &ParentDonation {
+                address: deps.api.addr_validate(&parent.addr)?,
+                donating_parent_period: parent.donating_period,
+                part: parent.part,
+            },
+        )?;
+    }
 
     Ok(Response::new())
 }
